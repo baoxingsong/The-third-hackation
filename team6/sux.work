@@ -1,0 +1,239 @@
+Arabidopsis thaliana 02 code (7 assembling methods)
+Data:
+●CRR302667.fastq.gz      ONT
+●CRR302668.fastq.gz      HIFI
+●CRR302669_f1.fastq.gz   HIC
+●CRR302669_r2.fastq.gz   HIC
+
+1.hifiasm -hifi-ont
+#!/bin/bash
+#SBATCH -o job.asm.out
+#SBATCH -p tcum256c128Partition
+#SBATCH -J arabidopsis
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=128
+/data/wangsw/genome/hifiasm/hifiasm -o ot -t 128  --ul-cut 30000  --telo-m CCCTAAA CRR302668.fastq.gz --ul CRR302667.fastq.gz  > asm.all.out 2> asm.all.err
+
+2.hifiasm -hifi
+#!/bin/bash
+#SBATCH -o job.asm.out
+#SBATCH -p tcum256c128Partition
+#SBATCH -J arabidopsis
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=128
+/data/wangsw/genome/hifiasm/hifiasm -o ar -t 128  --ul-cut 30000  --telo-m CCCTAAA CRR302668.fastq.gz > asm.all.out 2> asm.all.err
+
+3.hifiasm -hifi-ont-hic
+#!/bin/bash
+#SBATCH -o job.asm.out
+#SBATCH -p tcum256c128Partition
+#SBATCH -J arabidopsis
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=128
+/data/wangsw/genome/hifiasm/hifiasm -o hc -t 128  --ul-cut 30000  --telo-m CCCTAAA CRR302668.fastq.gz --ul CRR302667.fastq.gz -h1 CRR302669_f1.fastq.gz -h2 CRR302669_r2.fastq.gz > asm.all.out 2> asm.all.err
+
+4.canu
+#!/bin/bash
+#SBATCH -o job.asm.out
+#SBATCH -p tcum256c128Partition
+#SBATCH --qos=inspur_limit_submit
+#SBATCH -J arcanu
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=128
+/data/wangsw/anaconda3/envs/canu -d ar_canu_assembly -p ar_canu genomeSize=134M useGrid=false maxThreads=128 -pacbio-hifi CRR302668.fastq.gz 2> canu.log
+
+
+
+5.verkko-hifi
+#!/bin/bash
+#SBATCH -o job.asm.out
+#SBATCH -p tcum256c128Partition
+#SBATCH --qos=inspur_limit_submit
+#SBATCH -J ar_ver_hifi
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=128
+/data/sux/ll/envs/verkko -d verkko_out --hifi CRR302668.fastq.gz  --no-correction --threads 128 --local --local-memory 200 --local-cpus 128 2> verkko.log
+
+
+
+
+6.verkko-hifi-ont
+#!/bin/bash
+#SBATCH -o job.asm.out
+#SBATCH -p tcum256c128Partition
+#SBATCH --qos=inspur_limit_submit
+#SBATCH -J ar_ver_hifi_ont
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=128
+/data/sux/ll/envs/verkko -d verkko_ont_out --hifi CRR302668.fastq.gz  --no-correction --nano  CRR302667.fastq.gz --threads 128 --local --local-memory 200 --local-cpus 128 2> verkko.log
+
+
+7.nextdenovo -ont
+#!/bin/bash
+#SBATCH -o job.next.out
+#SBATCH -p fatsongPartition
+#SBATCH -J next.ar
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=128
+#SBATCH --nodelist=tcu162
+/data/wangsw/genome/NextDenovo/nextDenovo ./run.cfg 
+
+run.cfg
+[General]
+job_type = local
+job_prefix = nextDenovo
+task = all # 'all', 'correct', 'assemble'
+rewrite = yes # yes/no
+deltmp = yes
+rerun = 3
+parallel_jobs = 8
+input_type = raw # raw, corrected
+read_type = ont # ont, hifi, clr
+input_fofn = ./input.fofn
+workdir = ./01_rundir
+
+[correct_option]
+read_cutoff = 1k
+genome_size = 134m
+pa_correction = 56
+sort_options = -m 9g -t 2
+minimap2_options_raw =  -t 16
+correction_options = -p 2
+
+[assemble_option]
+minimap2_options_cns =  -t 16
+nextgraph_options = -a 1
+
+Location of the result file：01_rundir/03.ctg_graph/nd.asm.fasta
+Arabidopsis thaliana 03 code (6 assembling methods)
+●CRR339253.fastq.gz      HIFI
+●CRR338453.fastq.gz      ONT-pass
+●CRR338454.fastq.gz      ONT-fail
+
+1.verkko-hifi 
+#!/bin/bash
+#SBATCH -o job.asm05.out
+#SBATCH -p tcum256c128Partition
+#SBATCH --qos=inspur_limit_submit
+#SBATCH -J v-hifi
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=128
+
+/data/sux/ll/envs/verkko -d verkko --hifi CRR338453.fastq.gz  --no-correction --threads 128 --local --local-memory 200 --local-cpus 128 2> verkko.log
+
+2.verkko-hifi-ont
+#!/bin/bash
+#SBATCH -o job.asm.out
+#SBATCH -p tcum256c128Partition
+#SBATCH --qos=inspur_limit_submit
+#SBATCH -J v_o_h
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=128
+/data/sux/ll/envs/verkko -d verkko_ont_out --hifi CRR339253.fastq.gz  --no-correction --nano  CRR338453.fastq.gz --threads 128 --local --local-memory 200 --local-cpus 128 2> verkko.log
+
+3.canu-hifi
+#!/bin/bash
+#SBATCH -o job.asm.out
+#SBATCH -p tcum256c128Partition
+#SBATCH --qos=inspur_limit_submit
+#SBATCH -J ar02canu
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=128
+/data/wangsw/anaconda3/envs/canu -d ar_canu_assembly -p ar_canu genomeSize=134M useGrid=false maxThreads=128 -pacbio-hifi CRR339253.fastq.gz 2> canu.log
+
+4nextdenovo-ont
+#!/bin/bash
+#SBATCH -e job.test.%j.err 
+#SBATCH -o job.test.%j.out
+#SBATCH -p tcum256c128Partition
+#SBATCH -J next.ar
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=128
+/data/wangsw/genome/NextDenovo/nextDenovo ./run.cfg
+
+./run.cfg 
+[General]
+job_type = local
+job_prefix = nextDenovo
+task = all # 'all', 'correct', 'assemble'
+rewrite = yes # yes/no
+deltmp = yes
+rerun = 3
+parallel_jobs = 8
+input_type = raw # raw, corrected
+read_type = ont # ont, hifi, clr
+input_fofn = ./input.fofn
+workdir = ./01_rundir
+
+[correct_option]
+read_cutoff = 1k
+genome_size = 134m
+pa_correction = 56
+sort_options = -m 9g -t 2
+minimap2_options_raw =  -t 16
+correction_options = -p 2
+
+[assemble_option]
+minimap2_options_cns =  -t 16
+nextgraph_options = -a 1
+
+5.hifiasm-hifi
+#!/bin/bash
+#SBATCH -o job.asm.out
+#SBATCH -p tcum256c128Partition
+#SBATCH --qos=inspur_limit_submit
+#SBATCH -J ar02canu
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=128
+/data/wangsw/genome/hifiasm/hifiasm -o ah -t 128 --ul-cut 30000 --telo-m CCCTAAA /home/zhaoy/my_data/hackathon/Arabidopsis/03.Arabidopsis.thaliana-jiao/CRR339253.fastq.gz > ah.all.out 2> ah.all.err
+
+6.hifiasm-hifi-ont
+#!/bin/bash
+#SBATCH -o job.asm.out
+#SBATCH -p tcum256c128Partition
+#SBATCH --qos=inspur_limit_submit
+#SBATCH -J ar02canu
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=128
+/data/wangsw/genome/hifiasm/hifiasm -o aho -t 128 --ul-cut 30000 --telo-m CCCTAAA /home/zhaoy/my_data/hackathon/Arabidopsis/03.Arabidopsis.thalianajiao/CRR339253.fastq.gz –ul /home/zhaoy/my_data/hackathon/Arabidopsis/03.Arabidopsis.thaliana-jiao/CRR338453.fastq.gz > asm.all.out 2> asm.all.err
+
+Software-testing
+Data:
+/data/yangg/ 00.hackathon/01.wm/scaffold/nd.asm.fasta
+/data/yangg /00.hackathon/01.wm/scaffold/hap2/out.hap2.FINAL.fa
+1.TGSgapcloser
+#!/bin/bash
+#SBATCH -o job.asm.out
+#SBATCH -p tcum256c128Partition
+#SBATCH -J arabidopsis
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=128
+/data/wangsw/anaconda3/envs/tgsgapcloser --scaff out.hap2.FINAL.fa --reads ont.fastq.filtered.fq --output test_output --ne >pipe.log 2>pipe.err
+
+2.quartet
+#!/bin/bash
+#SBATCH -o job.quartet.out
+#SBATCH -p fatsongPartition
+#SBATCH -J quartet-ont
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=128
+#SBATCH --nodelist=tcu162
+python3 /home/zhaoy/software/quarTeT/quartet_gapfiller.py -d /data/yangg/00.hackathon/01.wm/scaffold/hap2/out.hap2.FINAL.fa -g /data/yangg/00.hackathon/01.wm/scaffold/nd.asm.fasta -f 5000 -l 1000 -i 80 -m 1000000 -t 20 --overwrite
+
+3.regcloser
+#!/bin/bash
+#SBATCH -o job.asm.out
+#SBATCH -p tcum256c128Partition
+#SBATCH -J regcloser
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=128
+python3 /home/zhaoy/software/RegCloser/RunPipeline.py -p /data/yangg/00.hackathon/01.wm/scaffold/nd.asm.fasta -g /data/yangg/00.hackathon/01.wm/scaffold/hap2/out.hap2.FINAL.fa -d output -t 128
+
+4.GMcloser
+#!/bin/bash
+#SBATCH -o job.asm.out
+#SBATCH -p tcum256c128Partition
+#SBATCH -J regcloser
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=128
+/home/zhaoy/my_data/hackathon/GMcloser-1.6.2/gmcloser -t /data/yangg/00.hackathon/01.wm/scaffold/hap2/out.hap2.FINAL.fa -q /data/yangg/00.hackathon/01.wm/scaffold/nd.asm.fasta --thread 128 --p outfile
