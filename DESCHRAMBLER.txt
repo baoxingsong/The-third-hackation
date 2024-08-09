@@ -1,0 +1,127 @@
+参考链接：
+paper：https://www.pnas.org/doi/10.1073/pnas.1702012114
+paper：https://academic.oup.com/bioinformaticsadvances/article/3/1/vbad161/7382206?login=false
+process: https://biochen.org/cn/blog/2021/%E4%B8%A4%E5%9F%BA%E5%9B%A0%E7%BB%84%E6%AF%94%E5%AF%B9/
+tools: https://github.com/jkimlab/DESCHRAMBLER
+tools: https://github.com/Farre-lab/syntenyPlotteR
+
+安装UCSC工具
+mkdir -p ~/software/kent
+cd ~/software/kent/
+wget https://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/faSize
+wget https://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/faToTwoBit
+wget https://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/faSplit
+wget https://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/axtChain
+wget https://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/chainMergeSort
+wget https://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/chainPreNet
+wget https://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/chainNet
+wget https://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/netSyntenic
+wget https://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/netToAxt
+wget https://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/axtSort
+wget https://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/axtToMaf
+chmod +x *
+echo "export PATH=$HOME/software/kent:\$PATH" >> ~/.bashrc
+source ~/.bashrc
+
+安装LASTZ
+cd ~/software/
+wget https://github.com/lastz/lastz/archive/refs/tags/1.04.15.tar.gz
+tar zxf 1.04.15.tar.gz
+cd lastz-1.04.15/
+make
+cp src/lastz ~/software/kent/
+rm -rf ~/software/lastz-1.04.15
+rm ~/software/1.04.15.tar.gz
+#基因组比对首先需要屏蔽基因组上的重复序列。我们以斑马鱼（Danio rerio）和鲤鱼（Cyprinus carpio）的基因组为例，从Ensembl下载软屏蔽的基因组文件。
+#如果没有屏蔽了重复序列的基因组，可以使用RepeatModeler和RepeatMasker自己屏蔽。
+mkdir -p ~/Danio_rerio_Cyprinus_carpio
+cd ~/Danio_rerio_Cyprinus_carpio/
+wget http://ftp.ensembl.org/pub/release-104/fasta/danio_rerio/dna/Danio_rerio.GRCz11.dna_sm.primary_assembly.fa.gz
+gunzip Danio_rerio.GRCz11.dna_sm.primary_assembly.fa.gz
+mv Danio_rerio.GRCz11.dna_sm.primary_assembly.fa Danio_rerio.fa
+
+wget http://ftp.ensembl.org/pub/release-104/fasta/cyprinus_carpio/dna/Cyprinus_carpio.common_carp_genome.dna_sm.toplevel.fa.gz
+gunzip Cyprinus_carpio.common_carp_genome.dna_sm.toplevel.fa.gz
+mv Cyprinus_carpio.common_carp_genome.dna_sm.toplevel.fa Cyprinus_carpio.fa
+
+#将fa文件转换生成2bit文件，计算每条染色体的长度，用于后续的分析。
+faToTwoBit Danio_rerio.fa Danio_rerio.2bit
+faToTwoBit Cyprinus_carpio.fa Cyprinus_carpio.2bit
+faSize Danio_rerio.fa -detailed > Danio_rerio.sizes
+faSize Cyprinus_carpio.fa -detailed > Cyprinus_carpio.sizes
+
+#lastz本身不支持并行，所以我们将斑马鱼基因组按照染色体切分，手动并行。
+mkdir fa
+faSplit byName Danio_rerio.fa fa
+
+#第1步：使用lastz比对
+mkdir axt
+for i in fa/*.fa; do prefix=$(basename $i .fa); lastz $i Cyprinus_carpio.fa O=400 E=30 K=3000 L=3000 H=2200 T=1 --format=axt --ambiguous=n --ambiguous=iupac > axt/${prefix}.axt; done
+
+#第2步：Chaining
+mkdir chain 
+for i in axt/*.axt; do prefix=$(basename $i .axt); axtChain $i Danio_rerio.2bit Cyprinus_carpio.2bit chain/${prefix}.chain -minScore=3000 -linearGap=medium
+#Chaining过滤
+chainPreNet *.chain Danio_rerio.sizes Cyprinus_carpio.sizes *.pre.chain
+
+#第3步：Netting
+chainNet all.pre.chain -minSpace=1 Danio_rerio.sizes Cyprinus_carpio.sizes stdout /dev/null | netSyntenic stdin noClass.net
+
+#DESCHRAMBLER输入文件准备
+
+#1：config.SFs
+
+# path of a net files #This directory needs to have a sub-directory structure as below.
+>netdir
+/media/songlab/14t1/Team1/software/DESCHRAMBLER-master/Run2/chainNet
+
+# path of a chain files #This directory needs to have a sub-directory structure as below.
+>chaindir
+/media/songlab/14t1/Team1/software/DESCHRAMBLER-master/Run2/chainNet
+
+# species-name tag1 tag2
+# tag1 (0: ref-species, 1: descendents, 2: outgroup)
+# tag2 (1: chromosome assembly, 0: others)
+# Warning for tag2: Use the value 1 only when a chromosome name starts with "chr". 
+>species
+Sorghum 0 1
+Zea 1 1
+Setaria 2 1
+
+# block resolution (bp): DO NOT CHANGE
+>resolution
+<resolutionwillbechanged>
+
+#2.Makefile.SFs
+You don't need to edit this file. Just copy this file to your working directory. Please use the example file in the "examples" directory.
+
+#3.tree.txt
+This file contains the newick tree for the species listed in the config.SFs file. 
+The target ancestor must be specified by the "@" symbol. Please refer to the example tree file in the "examples" directory.
+
+#4.params.txt
+The following parameters need to be specified.
+        - REFSPC: the name of a reference species
+                  This name must match with the name used in the chain/net directory, species list in 
+                  the config.SFs file, and the tree.txt file.
+        - OUTPUTDIR: the output directory 
+        - RESOLUTION: block resolution
+        - TREEFILE: a path to the newick tree file
+        - MINADJSCR: the minimum scores of adjacent syntenic fragments used in reconstruction
+        - CONFIGSFSFILE: a path to the config.SFs file          
+        - MAKESFSFFILE: a path to the Makefile.SFs file   
+		
+#Run DESCHRAMBLER 
+There is a wrapper Perl script, 'DESCHRAMBLER.pl'. To run DESCHRAMBLER, type as:
+<path to DESCHRAMBLER>/DESCHRAMBLER.pl <path to the parameter file: params.txt> 
+
+#Visualize_by R(SyntenyPlotteR)
+
+install.packages("syntenyPlotteR")
+library(syntenyPlotteR)
+#Evolution Highway style
+draw.eh("output", chrRange, "data_file", fileformat = "png", colour = "lightblue", inverted.colour = "lightpink", w = 5.5, h = 10, ps = 10)
+#Chromosome painting style
+draw.ideogram("file_data", "sizefile", "output", fileformat = "png", colours = colours.default, w=8.5, h=10, ps=5)
+#Linear style
+draw.linear(output, sizefile, ..., fileformat = "png", colours = colours.default, w=13, h=5, opacity = .5)
