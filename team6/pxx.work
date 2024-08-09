@@ -1,0 +1,162 @@
+Watermelon genome assembly by HiFiasm
+assembly 
+hifiasm path /home/wangsw/my_data/genome/hifiasm/hifiasm
+data path of watermelon /home/yangg/my_data/00.hackathon/00.data/01.watermelon
+/data/yangg/00.hackathon/00.data/01.watermelon
+hifi_data_path /home/yangg/my_data/00.hackathon/00.data/01.watermelon/fastq-hifi/hifi.fastq
+/data/yangg/00.hackathon/00.data/01.watermelon/fastq-hifi/hifi.fastq
+Ont_data_path /home/yangg/my_data/00.hackathon/00.data/01.watermelon/fastq-ont/ont.fastq
+/data/yangg/00.hackathon/00.data/01.watermelon/fastq-ont/ont.fastq
+Watermelon nextdenovo data path by Dong Xu
+/data/yangg/00.hackathon/01.wm/04.nextdenovo/00_rundir/03.ctg_graph/nd.asm.fasta
+ContigsMerger path
+/home/wangsw/my_data/pxx_hackthon24/software/ContigsMerger
+ 
+Hifi.sh  hifi data
+example：
+hifiasm -o NA12878.asm -t 32 NA12878.fq.gz
+ 
+dractice：
+/home/wangsw/my_data/genome/hifiasm/hifiasm -o wm_hifi.asm -t 128 /home/yangg/my_data/00.hackathon/00.data/01.watermelon/fastq-hifi/hifi.fastq
+  
+Hifi_ont.sh hifi data+ont data
+example：
+hifiasm -o NA12878.asm -t32 --ul ul.fq.gz HiFi-reads.fq.gz
+hifiasm -o NA12878.asm -t32 --ul ul.fq.gz HiFi-reads.fq.gz
+ 
+dractice：
+/home/wangsw/my_data/genome/hifiasm/hifiasm -o wm_ho.asm -t128 --ul /data/yangg/00.hackathon/00.data/01.watermelon/fastq-ont/ont.fastq
+/data/yangg/00.hackathon/00.data/01.watermelon/fastq-hifi/hifi.fastq
+ 
+hifi_ont_hic.sh hifi data+ont data+hic data
+example：
+hifiasm -o NA12878.asm -t32 --ul ul.fq.gz --h1 read1.fq.gz --h2 read2.fq.gz HiFi-reads.fq.gz
+ 
+dractice：
+/home/wangsw/my_data/genome/hifiasm/hifiasm -o wm_hoh.asm -t 128 --ul /data/yangg/00.hackathon/00.data/01.watermelon/fastq-ont/ont.fastq --h1 /data/yangg/00.hackathon/00.data/01.watermelon/fastq-hic/hic_1.fastq --h2 /data/yangg/00.hackathon/00.data/01.watermelon/fastq-hic/hic_2.fastq
+/data/yangg/00.hackathon/00.data/01.watermelon/fastq-hifi/hifi.fastq
+
+Gfa to fa
+example：
+awk '/^S/{print ">"$2;print $3}' test.bp.p_ctg.gfa > test.p_ctg.fa
+dractice：
+awk '/^S/{print ">"$2;print $3}' /data/wangsw/pxx_hackthon24/hifi/wm_hifi.asm.bp.p_ctg.gfa  > wm_hifi.asm.p_ctg.fa
+ 
+Contig Merge
+
+Quickmerge
+ 
+example：
+merge_wrapper.py mecat.fasta nextdenovo.fasta
+dractice：
+merge_wrapper.py  wm_ho.asm.bp.hap1.p_ctg.fa nd.asm.fasta
+ 
+ContigsMerger（Runs very slow and results are questionable）
+example：
+contigsMerger reference.fa contigs.fa N
+ 
+dractice：
+/home/wangsw/my_data/pxx_hackthon24/software/ContigsMerger/contigsMerger wm_ho.asm.bp.hap1.p_ctg.fa nd.asm.fasta N
+
+Minimus2
+Step1
+toAmos -s nd_hifi.fa -o nd_hifi.afg
+
+step2
+minimus2 nd_hifi -D REFCOUNT=18
+ 
+Ragtag 
+# make joins and fill gaps in target.fa using sequences from query.fa
+ragtag.py patch target.fa query.fa
+ 
+dractice：
+ragtag.py patch out.hap2.FINAL.fa nd.asm.fasta
+
+Maize genome assembly by HiFiasm
+/data/wangsw/maizeGenomes
+/data/yangg/00.hackathon/04.mazie/01.assembly/7
+ 
+PB_CD878-001P0001
+cat /data/wangsw/maizeGenomes/BMK240718-CD878-ZX01-0101/BMK_DATA_20240803152707_1/Data/PB_CD878-001P0001/cell_1/CD878-001P0001.ccs.fastq.gz /data/wangsw/maizeGenomes/BMK240718-CD878-ZX01-0101/BMK_DATA_20240803152707_1/Data/PB_CD878-001P0001/cell_2/CD878-001P0001.ccs.fastq.gz > CD878-001P0001.ccs.fastq.gz
+ 
+PB_CD878-001P0003
+Cat /data/wangsw/maizeGenomes/BMK240718-CD878-ZX01-0101/BMK_DATA_20240803152707_1/Data/PB_CD878-001P0003/cell_1/CD878-001P0003.ccs.fastq.gz /data/wangsw/maizeGenomes/BMK240718-CD878-ZX01-0101/BMK_DATA_20240803152707_1/Data/PB_CD878-001P0003/cell_2/CD878-001P0003.ccs.fastq.gz > CD878-001P0003.ccs.fastq.gz
+ 
+Fastp quality control 
+fastp -I input -o output
+ 
+dractice：
+fastp -i CD878-001P0001.ccs.fastq.gz -o CD878-001P0001.ccs.fastq_clean.gz
+fastp -i CD878-001P0003.ccs.fastq.gz -o CD878-001P0003.ccs.fastq_clean.gz
+fastp -i ../lima.HR_bc2059--HR_bc2059.bam.fq.gz -o HR_bc2059.bam.fq_clean.gz
+fastp -i ../lima.HR_bc2015--HR_bc2015.bam.fq.gz -o lima.HR_bc2015--HR_bc2015.bam_clean.fq.gz
+fastp -i ../lima.HR_bc2017--HR_bc2017.bam.fq.gz -o lima.HR_bc2017--HR_bc2017.bam_clean.fq.gz
+ 
+Fastqc
+fastqc -t 12 -o out_path sample1_1.fq sample1_2.fq
+ 
+dractice
+fastqc -t 128 -o /home/wangsw/my_data/pxx_hackthon24/04.maize/02.CD878-001P0003/fastqc3 ../CD878-001P0003.ccs.fastq.gz
+ 
+fastqc -t 128 -o /home/wangsw/my_data/pxx_hackthon24/04.maize/01.CD878-001P0001/fastqc1  ../CD878-001P0001.ccs.fastq.gz
+ 
+Assembly
+ 
+PB_CD878-001P0001
+/home/wangsw/my_data/genome/hifiasm/hifiasm -o CD878-001P0001.asm -t 128 /home/wangsw/my_data/pxx_hackthon24/04.maize/01.CD878-001P0001/CD878-001P0001.ccs.fastq_clean.gz
+ 
+PB_CD878-001P0003
+/home/wangsw/my_data/genome/hifiasm/hifiasm -o CD878-001P0003.asm -t 128 /home/wangsw/my_data/pxx_hackthon24/04.maize/02.CD878-001P0003/CD878-001P0003.ccs.fastq_clean.gz
+ 
+lima.HR_bc2015
+/home/wangsw/my_data/genome/hifiasm/hifiasm -o HR_bc2015.asm -t 128 lima.HR_bc2015--HR_bc2015.bam.fq.gz
+ 
+lima.HR_bc2017
+/home/wangsw/my_data/genome/hifiasm/hifiasm -o HR_bc2017.asm -t 128 lima.HR_bc2017--HR_bc2017.bam_clean.fq.gz
+ 
+Randomly extract 30Gb of data for assembly
+ 
+40Gb data sampling 0.75
+ zcat ../CD878-001P0001.ccs.fastq_clean.gz | seqkit sample -p 0.75 -o CD878-001P0001_75_fastq_clean.gz
+ 
+zcat lima.HR_bc2015--HR_bc2015.bam_clean.fq.gz | seqkit sample -p 0.75 -o HR_bc2015.bam75_clean.fq.gz
+ 
+zcat lima.HR_bc2017--HR_bc2017.bam_clean.fq.gz | seqkit sample -p 0.75 -o HR_bc2017.bam_clean.fq.gz
+ 
+# The sampled data was assembled using hifiasm
+ 
+The contig scaffolding was performed using maize T2T reference genome as reference
+ragtag
+# install with conda
+conda install -c bioconda ragtag
+# correct a query assembly
+ragtag.py correct ref.fasta query.fasta
+# scaffold a query assembly
+ragtag.py scaffold ref.fasta query.fasta
+
+dractice
+ragtag.py scaffold ../mo17_T2T.fa ../CD878-001P0001.asm.bp.p_ctg.fa
+chromosomer
+ 
+AssemblyMapperm in Quartet（There's something wrong with the environment. It's not working）
+
+example
+Python3 quartet.py AssemblyMapper -r ref.fa -q contog.fa 
+ 
+dractice
+Python3 quartet.py AssemblyMapper -r mo17_T2T.fa -q CD878-001P0001.asm.bp.p_ctg.fa
+
+chromosomer（Very slow running, step1 killed after 2 days of running）
+example
+1、使用blast将自己组装的contig比对到参考基因组
+makeblastdb -in NC_000913_3.fasta -dbtype nucl -parse_seqids -out Ecoli
+blastn -query Additional_file_1_141.fa -db Ecoli -evalue 1e-30 -outfmt 6 -out output.txt
+
+dractice：
+makeblastdb -in mo17_T2T.fa -dbtype nucl -parse_seqids -out maize
+blastn -query CD878-001P0001.asm.bp.p_ctg.fa -db maize -evalue 1e-30 -outfmt 6 -out output.tx
+ 
+2、Chromosomer
+chromosomer fastalength Additional_file_1_141.fa fastalength.output
+chromosomer fragmentmap output.txt 100 fastalength.output outputMap.output
+chromosomer assemble outputMap.output Additional_file_1_141.fa outputFasta.fasta
