@@ -1,0 +1,163 @@
+###########################################
+#Next Denovo assemble watermelon ONT FASTQ
+###########################################
+
+#input.fofn
+/home/wangsw/my_data/genome/hackathon2024/data/watermelon/ont.fastq
+
+#run.cfg
+[General]
+job_type = local
+job_prefix = nextDenovo
+task = all # 'all', 'correct', 'assemble'
+rewrite = yes # yes/no
+deltmp = yes
+rerun = 3
+parallel_jobs = 4
+input_type = raw # raw, corrected
+read_type = ont # ont, hifi, clr
+input_fofn = ./input.fofn
+workdir = ./01_rundir
+
+[correct_option]
+read_cutoff = 1k
+genome_size = 381m
+pa_correction = 14
+sort_options = -m 9g -t 9
+minimap2_options_raw =  -t 9
+correction_options = -p 9
+
+[assemble_option]
+minimap2_options_cns =  -t 9
+nextgraph_options = -a 1
+
+#run.sh
+/home/wangsw/my_data/genome/NextDenovo/nextDenovo run.cfg
+
+
+#########################################
+#grep unmapped reads from ONT map result
+#########################################
+
+##id: the file storing the unmapped reads id
+
+##get the header
+samtools view -@ 128 -h sort.map.hq.ont.bam scaffold_1   > 5b.sam
+samtools view -H ../5b.sam > header
+
+##if id is continuous and sorted
+##grep.sh
+start=15
+end=977
+
+for i in $(seq $start $end); do
+    scaffold="scaffold_${i}"
+    
+    samtools view -@ 128  /data/wangsw/genome/hackathon2024/data/sort.map.hq.ont.bam "${scaffold}" >> header
+    
+    echo "Processed ${scaffold}"
+done
+
+mv header un.sam
+
+samtools view -@ 128 -bS un.sam | samtools sort - -o un.bam
+
+samtools bam2fq un.bam > un_reads.fq
+
+
+##the id is random and seperated
+##using python
+##unmapped.py
+import pysam  
+
+bamfile = pysam.AlignmentFile("/data/wangsw/genome/hackathon2024/data/map.hifi.sort.bam", "rb")  
+  
+with open("/data/wangsw/genome/hackathon2024/unmapped/hifi/id", "r") as idfile:  
+     chromosome_ids = set(line.strip() for line in idfile)
+     
+with open("unmapped.sam", "w") as resultfile:  
+    for read in bamfile:
+        if read.reference_name in chromosome_ids:  
+            resultfile.write(read.to_string() + "\n")  
+  
+##grep.sh
+python unmapped.py
+cat ./header ./unmapped.sam > un.sam
+
+samtools view -@ 128 -bS un.sam | samtools sort - -o un.bam
+
+samtools bam2fq un.bam > un_reads.fq
+
+
+
+###############################################
+##get reads 500000bp before and behind the gap 
+###############################################
+
+##get a bed file
+start=1  
+end=14  
+  
+for i in $(seq $start $end); do  
+    scaffold="scaffold_${i}"  
+      
+    awk -v scf="$scaffold" '$1 == scf && $5 == "N" {print $1, $2-500000+1, $2+500000, $5}' out.t2.FINAL.agp >> 01.bed  
+done
+
+awk '{OFS="\t"; print $1, $2, $3}' 01.bed > 02.bed
+
+awk '{OFS="\t"; print $1, ($2 >= 0 ? $2 : 0), $3}' 02.bed > 03.bed
+
+##get the reads(using bedtools)
+bedtools intersect -a /data/wangsw/genome/hackathon2024/data/sort.map.hq.ont.bam -b 03.bed -wa > allgap.bam
+samtools sort allgap.bam -o sorted.allgap.bam
+samtools fastq sorted.allgap.bam > allgap_reads.fq
+
+##using IGV to check
+
+
+
+#############################################################
+##get the collinear plot with anchors produced by anchorwave
+#############################################################
+
+##run anchorwave and get the anchors.file
+# 1.2.1 Overview the genome assemblies
+
+samtools faidx /data/wangsw/genome/hackathon2024/data/watermelon/PI482276.genome.fasta -o ./ref.fai
+samtools faidx /data/wangsw/genome/hackathon2024/data/watermelon/assembly.fasta -o ./query.fai
+#wait
+# 1.2.2 Get full-length CDS in fasta format
+
+anchorwave gff2seq -r /data/wangsw/genome/hackathon2024/data/watermelon/PI482276.genome.fasta -i /data/wangsw/genome/hackathon2024/data/watermelon/CaPI482276.EVM.0223.gff3 -o cds.fa 
+
+# 1.2.3 Map full-length CDS to reference and query genomes
+
+minimap2 -x splice -t 128 -k 12 -a -p 0.4 -N 20 /data/wangsw/genome/hackathon2024/data/watermelon/PI482276.genome.fasta cds.fa > ref.sam &
+minimap2 -x splice -t 128 -k 12 -a -p 0.4 -N 20 /data/wangsw/genome/hackathon2024/data/watermelon/assembly.fasta cds.fa > query.sam &
+
+wait
+
+# 1.3 Perform genome alignment
+anchorwave proali -i /data/wangsw/genome/hackathon2024/data/watermelon/CaPI482276.EVM.0223.gff3 -as cds.fa -r /data/wangsw/genome/hackathon2024/data/watermelon/PI482276.genome.fasta -a query.sam -ar ref.sam -s /data/wangsw/genome/hackathon2024/data/watermelon/assembly.fasta -n assembly.anchors -R 1 -Q 1 -o assembly.maf -f assembly.f.maf -t 128
+
+
+##draw a collinear plot
+library(ggplot2)
+changetoM <- function ( position ){
+  position=position/1000000;
+  paste(position, "M", sep="")
+}
+data =read.table("./", header=TRUE)
+ggplot(data=data, aes(x=queryStart, y=referenceStart))+
+  geom_point(size=0.5, aes(color=strand)) +
+  facet_grid(refChr~queryChr, scales="free", space="free") +
+  labs(x="verkko", y="T2T")+scale_x_continuous(labels=changetoM) +
+  scale_y_continuous(labels=changetoM) +
+  theme(axis.line = element_blank(),
+        panel.background = element_blank(),
+        panel.border = element_rect(fill =NA,color="black", size=0.5, linetype="solid"),
+        axis.text.y = element_text( colour = "black"),
+        legend.position='none',
+        axis.text.x = element_text(angle=300,hjust=0, vjust=0.5, colour = "black") )
+
