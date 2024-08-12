@@ -40,7 +40,11 @@ if [ "$1" = "--help" ]; then
  echo "Options:"
  echo "  -chr <number>    Define chr as 1 to <number> (default is 29)"
  echo "  -m               Use mask file in smc++ vcf2smc command"
+<<<<<<< HEAD
  echo "  -boost <number>  Define bootstraps number (default is 20)"
+=======
+ echo "  -boost <number>          Define bootstraps number (default is 20)"
+>>>>>>> 80260d2910b942a1ca81090b1c4540c1eb14fb9d
 
  exit 0
 fi
