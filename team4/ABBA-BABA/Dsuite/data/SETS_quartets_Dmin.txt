@@ -1,0 +1,2 @@
+P1	P2	P3	P4	Dstatistic	Z-score	p-value	f4-ratio	BBAA	ABBA	BABA
+Malus_domestica	Malus_domestica2	Malus_sieversii	Malus_sylvestris	0.141346	4.85047	1.2317e-06	0.219508	366454	736560	554126
